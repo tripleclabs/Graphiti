@@ -200,6 +200,39 @@ extension TypeProvider {
         return interfaceType
     }
 
+    func getInputObjectType(from type: Any.Type) throws -> GraphQLInputObjectType {
+        let graphQLType: GraphQLType
+
+        do {
+            graphQLType = try getGraphQLType(from: type)
+        } catch {
+            throw GraphQLError(
+                message:
+                "Cannot use type \"\(type)\" as input object. " +
+                    "Type does not map to a GraphQL type.",
+                originalError: error
+            )
+        }
+
+        guard let nonNull = graphQLType as? GraphQLNonNull else {
+            throw GraphQLError(
+                message:
+                "Cannot use type \"\(type)\" as input object. " +
+                    "Mapped GraphQL type is nullable."
+            )
+        }
+
+        guard let inputObjectType = nonNull.ofType as? GraphQLInputObjectType else {
+            throw GraphQLError(
+                message:
+                "Cannot use type \"\(type)\" as input object. " +
+                    "Mapped GraphQL type is not an input object type."
+            )
+        }
+
+        return inputObjectType
+    }
+
     func getObjectType(from type: Any.Type) throws -> GraphQLObjectType {
         let graphQLType: GraphQLType
 
