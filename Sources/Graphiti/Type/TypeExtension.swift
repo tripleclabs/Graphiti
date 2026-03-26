@@ -13,6 +13,10 @@ public final class TypeExtension<
     override func update(typeProvider: SchemaTypeProvider, coders: Coders) throws {
         let existingType = try typeProvider.getObjectType(from: ObjectType.self)
 
+        if let desc = description {
+            existingType.description = desc
+        }
+
         var newFields: GraphQLFieldMap = [:]
         for field in fields {
             let (name, graphQLField) = try field.field(typeProvider: typeProvider, coders: coders)

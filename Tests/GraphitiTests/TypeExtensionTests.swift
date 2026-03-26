@@ -95,6 +95,43 @@ struct TypeExtensionTests {
         )
     }
 
+    @Test func typeExtensionOverridesDescription() throws {
+        let schema = try Schema<TestResolver, NoContext> {
+            Type(ExtendedObject.self) {
+                Field("id", at: \.id)
+            }
+            .description("Original description")
+            TypeExtension(ExtendedObject.self) {
+                Field("kind", at: \.kind)
+            }
+            .description("Overridden description")
+            Query {
+                Field("object", at: TestResolver.object)
+            }
+        }
+
+        let objectType = try #require(schema.schema.typeMap["ExtendedObject"] as? GraphQLObjectType)
+        #expect(objectType.description == "Overridden description")
+    }
+
+    @Test func typeExtensionWithoutDescriptionLeavesExistingDescription() throws {
+        let schema = try Schema<TestResolver, NoContext> {
+            Type(ExtendedObject.self) {
+                Field("id", at: \.id)
+            }
+            .description("Original description")
+            TypeExtension(ExtendedObject.self) {
+                Field("kind", at: \.kind)
+            }
+            Query {
+                Field("object", at: TestResolver.object)
+            }
+        }
+
+        let objectType = try #require(schema.schema.typeMap["ExtendedObject"] as? GraphQLObjectType)
+        #expect(objectType.description == "Original description")
+    }
+
     @Test func typeExtensionBeforeBaseTypeThrows() {
         do {
             _ = try Schema<TestResolver, NoContext> {
