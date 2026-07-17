@@ -186,23 +186,21 @@ private enum GraphitiBenchmarks {
         let variables: [String: Map] = ["id": .int(configuration.itemCount / 2)]
         let siblingQuery = "{ " + (0 ..< 20).map { "field\($0): keyPath" }.joined(separator: " ") + " }"
 
-        let keyPathDocument = try preparedDocument(keyPathQuery, for: api.schema.schema)
-        let syncDocument = try preparedDocument(syncQuery, for: api.schema.schema)
-        let asyncDocument = try preparedDocument(asyncQuery, for: api.schema.schema)
-        let listDocument = try preparedDocument(listQuery, for: api.schema.schema)
-        let argumentDocument = try preparedDocument(argumentQuery, for: api.schema.schema)
-        let siblingDocument = try preparedDocument(siblingQuery, for: api.schema.schema)
+        let keyPathOperation = try api.prepare(request: keyPathQuery)
+        let syncOperation = try api.prepare(request: syncQuery)
+        let asyncOperation = try api.prepare(request: asyncQuery)
+        let listOperation = try api.prepare(request: listQuery)
+        let argumentOperation = try api.prepare(request: argumentQuery)
+        let siblingOperation = try api.prepare(request: siblingQuery)
         let directSchema = try makeDirectSchema()
         let directDocument = try preparedDocument(keyPathQuery, for: directSchema)
 
-        let prepared: @Sendable (Document, [String: Map]) async throws -> Void = { document, variables in
+        let prepared: @Sendable (PreparedOperation, [String: Map]) async throws -> Void = { operation, variables in
             try check(
-                await execute(
-                    schema: api.schema.schema,
-                    documentAST: document,
-                    rootValue: api.resolver,
+                await api.execute(
+                    prepared: operation,
                     context: context,
-                    variableValues: variables
+                    variables: variables
                 )
             )
         }
@@ -222,7 +220,7 @@ private enum GraphitiBenchmarks {
                 )
             },
             BenchmarkCase(name: "prepared.graphiti.keypath", operationsPerSample: 1) {
-                try await prepared(keyPathDocument, [:])
+                try await prepared(keyPathOperation, [:])
             },
             BenchmarkCase(name: "prepared.graphql-direct.keypath", operationsPerSample: 1) {
                 try check(
@@ -235,29 +233,29 @@ private enum GraphitiBenchmarks {
                 )
             },
             BenchmarkCase(name: "prepared.graphiti.sync", operationsPerSample: 1) {
-                try await prepared(syncDocument, [:])
+                try await prepared(syncOperation, [:])
             },
             BenchmarkCase(name: "prepared.graphiti.async", operationsPerSample: 1) {
-                try await prepared(asyncDocument, [:])
+                try await prepared(asyncOperation, [:])
             },
             BenchmarkCase(name: "prepared.graphiti.siblings-20", operationsPerSample: 1) {
-                try await prepared(siblingDocument, [:])
+                try await prepared(siblingOperation, [:])
             },
             BenchmarkCase(name: "request.graphiti.list-\(configuration.itemCount)", operationsPerSample: 1) {
                 try check(await api.execute(request: listQuery, context: context))
             },
             BenchmarkCase(name: "prepared.graphiti.list-\(configuration.itemCount)", operationsPerSample: 1) {
-                try await prepared(listDocument, [:])
+                try await prepared(listOperation, [:])
             },
             BenchmarkCase(name: "prepared.graphiti.arguments", operationsPerSample: 1) {
-                try await prepared(argumentDocument, variables)
+                try await prepared(argumentOperation, variables)
             },
             BenchmarkCase(
                 name: "prepared.graphiti.keypath.concurrent-\(configuration.concurrency)",
                 operationsPerSample: configuration.concurrency
             ) {
                 try await concurrently(configuration.concurrency) {
-                    try await prepared(keyPathDocument, [:])
+                    try await prepared(keyPathOperation, [:])
                 }
             },
             BenchmarkCase(
@@ -265,7 +263,7 @@ private enum GraphitiBenchmarks {
                 operationsPerSample: configuration.concurrency
             ) {
                 try await concurrently(configuration.concurrency) {
-                    try await prepared(listDocument, [:])
+                    try await prepared(listOperation, [:])
                 }
             },
         ].filter { benchmark in

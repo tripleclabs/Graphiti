@@ -8,6 +8,31 @@ public protocol API {
 }
 
 public extension API {
+    func prepare(
+        request: String,
+        operationName: String? = nil,
+        validationRules: [@Sendable (ValidationContext) -> Visitor] = []
+    ) throws -> PreparedOperation {
+        try schema.prepare(
+            request: request,
+            operationName: operationName,
+            validationRules: validationRules
+        )
+    }
+
+    func execute(
+        prepared operation: PreparedOperation,
+        context: ContextType,
+        variables: [String: Map] = [:]
+    ) async throws -> GraphQLResult {
+        try await schema.execute(
+            prepared: operation,
+            resolver: resolver,
+            context: context,
+            variables: variables
+        )
+    }
+
     func execute(
         request: String,
         context: ContextType,

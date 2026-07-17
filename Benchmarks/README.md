@@ -20,8 +20,9 @@ The suite intentionally separates two paths:
 
 - `request.*` calls Graphiti's public `API.execute`. Each operation includes schema validation,
   parsing, document validation, variable coercion, execution, and result construction.
-- `prepared.*` parses and validates the document once, then measures execution and result
-  construction through GraphQL's lower-level `execute` function.
+- `prepared.graphiti.*` uses Graphiti's public prepared-operation API to parse and validate once,
+  then measures schema-bound execution and result construction. The `graphql-direct` control uses
+  GraphQL's lower-level `execute` function directly.
 
 The `graphql-direct` control uses an equivalent field defined directly with GraphQL. Compare it
 with the corresponding Graphiti key-path benchmark to estimate the overhead of Graphiti's field

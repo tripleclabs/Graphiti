@@ -25,13 +25,22 @@ public final class Schema<Resolver: Sendable, Context: Sendable>: Sendable {
             )
         }
 
-        schema = try GraphQLSchema(
+        let schema = try GraphQLSchema(
             query: typeProvider.query,
             mutation: typeProvider.mutation,
             subscription: typeProvider.subscription,
             types: typeProvider.types,
             directives: typeProvider.directives
         )
+
+        // GraphQL caches schema validation lazily without synchronizing the initial write.
+        // Validate before publishing the Sendable schema so concurrent requests only read it.
+        let validationErrors = try validateSchema(schema: schema)
+        guard validationErrors.isEmpty else {
+            throw GraphQLErrors(validationErrors)
+        }
+
+        self.schema = schema
     }
 }
 

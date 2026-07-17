@@ -41,7 +41,7 @@ serving queries against that type schema.
 First, we declare our regular Swift entities.
 
 ```swift
-struct Message : Codable {
+struct Message: Codable, Sendable {
     let content: String
 }
 ```
@@ -53,7 +53,7 @@ struct Message : Codable {
 Second step is to create your application's **context**. The context will be passed to all of your field resolver functions. This allows you to apply dependency injection to your API. This is the place where you can put code that talks to a database or another service.
 
 ```swift
-struct Context {
+struct Context: Sendable {
     func message() -> Message {
         Message(content: "Hello, world!")
     }
@@ -69,7 +69,7 @@ Now that we have our entities and context we can create the GraphQL API resolver
 ```swift
 import Graphiti
 
-struct Resolver {
+struct Resolver: Sendable {
     func message(context: Context, arguments: NoArguments) -> Message {
         context.message()
     }
@@ -205,12 +205,29 @@ The output will be:
 
 `API.execute` returns a `GraphQLResult` which adopts `Encodable`. You can use it with a `JSONEncoder` to send the response back to the client using JSON.
 
+For trusted or persisted queries that execute repeatedly, prepare the operation once to avoid
+parsing and document validation on every request:
+
+```swift
+let operation = try api.prepare(
+    request: "{ message { content } }"
+)
+
+let result = try await api.execute(
+    prepared: operation,
+    context: Context()
+)
+```
+
+Prepared operations are `Sendable`, safe to reuse concurrently, and bound to the schema instance
+that validated them. Variables are still coerced independently for every execution.
+
 #### Async resolvers
 
 Resolver functions can also be `async`:
 
 ```swift
-struct Resolver {
+struct Resolver: Sendable {
     func message(context: Context, arguments: NoArguments) async -> Message {
         await someAsyncMethodToGetMessage()
     }
