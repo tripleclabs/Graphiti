@@ -28,6 +28,36 @@ The `graphql-direct` control uses an equivalent field defined directly with Grap
 with the corresponding Graphiti key-path benchmark to estimate the overhead of Graphiti's field
 adapter independently of the rest of the GraphQL engine.
 
+## Massive schema fixture
+
+The benchmark target includes a generated Graphiti schema with 2,000 distinct object types and
+five fields per type, for 10,000 model fields in total. The fixture is verified before measurements
+begin. Its workloads compare a small and massive schema for:
+
+- a trivial full request;
+- a prepared hot query;
+- concurrent prepared execution;
+- selection and execution of one type from the massive schema;
+- validation of an invalid type name; and
+- full schema introspection.
+
+The harness prints massive/small mean-latency ratios when both sides of a comparison are selected.
+Prepared execution should ideally remain close to `1.0x`, because unrelated schema types should not
+affect execution of an already validated operation.
+
+Invalid-type validation defaults to at most 25 measured samples, and massive introspection defaults
+to at most 10, because these deliberately expensive cases would otherwise dominate the suite. The
+output's `n` column reports the actual sample count used for each row.
+
+Regenerate the checked-in fixture after changing its shape:
+
+```sh
+swift Benchmarks/GenerateMassiveSchema.swift
+```
+
+The generated source is deliberately checked in so benchmark builds are reproducible and do not
+require a build-tool plugin or source mutation during compilation.
+
 Results are latency per operation. Concurrent benchmark latency is total batch duration divided by
 the number of requests, so its `ops/s` column is the aggregate throughput of that batch rather than
 individual request latency.

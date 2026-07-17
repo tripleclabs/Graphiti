@@ -7,9 +7,9 @@ public struct SchemaError: Error, Equatable {
 public final class Schema<Resolver: Sendable, Context: Sendable>: Sendable {
     public let schema: GraphQLSchema
 
-    init(
-        coders: Coders,
-        federatedSDL: String?,
+    public init(
+        coders: Coders = Coders(),
+        federatedSDL: String? = nil,
         components: [Component<Resolver, Context>]
     ) throws {
         let typeProvider = SchemaTypeProvider()

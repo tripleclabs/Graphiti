@@ -144,10 +144,27 @@ private enum BenchmarkError: Error, CustomStringConvertible {
 private struct BenchmarkCase: Sendable {
     let name: String
     let operationsPerSample: Int
+    let sampleLimit: Int?
+    let warmupLimit: Int?
     let operation: @Sendable () async throws -> Void
+
+    init(
+        name: String,
+        operationsPerSample: Int = 1,
+        sampleLimit: Int? = nil,
+        warmupLimit: Int? = nil,
+        operation: @escaping @Sendable () async throws -> Void
+    ) {
+        self.name = name
+        self.operationsPerSample = operationsPerSample
+        self.sampleLimit = sampleLimit
+        self.warmupLimit = warmupLimit
+        self.operation = operation
+    }
 }
 
 private struct Statistics {
+    let sampleCount: Int
     let mean: Double
     let median: Double
     let p95: Double
@@ -155,6 +172,7 @@ private struct Statistics {
 
     init(samples: [Double]) {
         let sorted = samples.sorted()
+        sampleCount = sorted.count
         mean = sorted.reduce(0, +) / Double(sorted.count)
         median = Self.percentile(0.50, in: sorted)
         p95 = Self.percentile(0.95, in: sorted)
@@ -183,6 +201,8 @@ private enum GraphitiBenchmarks {
         let asyncQuery = "{ async }"
         let listQuery = "{ items { id name score active } }"
         let argumentQuery = "query Item($id: Int!) { item(id: $id) { id name score active } }"
+        let invalidTypeQuery = "{ keyPath } fragment Invalid on BenchmarkItex { id }"
+        let introspectionQuery = "{ __schema { types { name fields { name } } } }"
         let variables: [String: Map] = ["id": .int(configuration.itemCount / 2)]
         let siblingQuery = "{ " + (0 ..< 20).map { "field\($0): keyPath" }.joined(separator: " ") + " }"
 
@@ -192,6 +212,7 @@ private enum GraphitiBenchmarks {
         let listOperation = try api.prepare(request: listQuery)
         let argumentOperation = try api.prepare(request: argumentQuery)
         let siblingOperation = try api.prepare(request: siblingQuery)
+        let introspectionOperation = try api.prepare(request: introspectionQuery)
         let directSchema = try makeDirectSchema()
         let directDocument = try preparedDocument(keyPathQuery, for: directSchema)
 
@@ -205,7 +226,7 @@ private enum GraphitiBenchmarks {
             )
         }
 
-        let cases = [
+        var cases = [
             BenchmarkCase(name: "request.graphiti.keypath", operationsPerSample: 1) {
                 try check(await api.execute(request: keyPathQuery, context: context))
             },
@@ -251,6 +272,27 @@ private enum GraphitiBenchmarks {
                 try await prepared(argumentOperation, variables)
             },
             BenchmarkCase(
+                name: "request.graphiti.invalid-type",
+                sampleLimit: 25,
+                warmupLimit: 5
+            ) {
+                try checkExpectedErrors(await api.execute(request: invalidTypeQuery, context: context))
+            },
+            BenchmarkCase(
+                name: "request.graphiti.introspection",
+                sampleLimit: 10,
+                warmupLimit: 1
+            ) {
+                try check(await api.execute(request: introspectionQuery, context: context))
+            },
+            BenchmarkCase(
+                name: "prepared.graphiti.introspection",
+                sampleLimit: 10,
+                warmupLimit: 1
+            ) {
+                try check(await api.execute(prepared: introspectionOperation, context: context))
+            },
+            BenchmarkCase(
                 name: "prepared.graphiti.keypath.concurrent-\(configuration.concurrency)",
                 operationsPerSample: configuration.concurrency
             ) {
@@ -266,7 +308,112 @@ private enum GraphitiBenchmarks {
                     try await prepared(listOperation, [:])
                 }
             },
-        ].filter { benchmark in
+        ]
+
+        let massiveCaseNames = [
+            "request.massive.hot",
+            "prepared.massive.hot",
+            "request.massive.selected-type",
+            "prepared.massive.selected-type",
+            "request.massive.invalid-type",
+            "request.massive.introspection",
+            "prepared.massive.introspection",
+            "prepared.massive.hot.concurrent-\(configuration.concurrency)",
+        ]
+        let includeMassiveFixture = configuration.filter.map { filter in
+            massiveCaseNames.contains { $0.localizedCaseInsensitiveContains(filter) }
+        } ?? true
+
+        if includeMassiveFixture {
+            print("Building and validating the 2,000-type massive schema fixture...")
+            let massiveAPI = try MassiveAPI()
+            let massiveContext = MassiveContext()
+            try verifyMassiveSchema(massiveAPI.schema.schema)
+
+            let massiveHotQuery = "{ hot }"
+            let massiveSelectedTypeQuery = "{ sample { field0 field1 field2 field3 field4 } }"
+            let massiveInvalidTypeQuery = "{ hot } fragment Invalid on MassiveType199X { field0 }"
+            let massiveIntrospectionQuery = "{ __schema { types { name fields { name } } } }"
+            let massiveHotOperation = try massiveAPI.prepare(request: massiveHotQuery)
+            let massiveSelectedTypeOperation = try massiveAPI.prepare(request: massiveSelectedTypeQuery)
+            let massiveIntrospectionOperation = try massiveAPI.prepare(request: massiveIntrospectionQuery)
+
+            cases += [
+                BenchmarkCase(name: "request.massive.hot") {
+                    try check(await massiveAPI.execute(request: massiveHotQuery, context: massiveContext))
+                },
+                BenchmarkCase(name: "prepared.massive.hot") {
+                    try check(await massiveAPI.execute(prepared: massiveHotOperation, context: massiveContext))
+                },
+                BenchmarkCase(name: "request.massive.selected-type") {
+                    try check(
+                        await massiveAPI.execute(
+                            request: massiveSelectedTypeQuery,
+                            context: massiveContext
+                        )
+                    )
+                },
+                BenchmarkCase(name: "prepared.massive.selected-type") {
+                    try check(
+                        await massiveAPI.execute(
+                            prepared: massiveSelectedTypeOperation,
+                            context: massiveContext
+                        )
+                    )
+                },
+                BenchmarkCase(
+                    name: "request.massive.invalid-type",
+                    sampleLimit: 25,
+                    warmupLimit: 5
+                ) {
+                    try checkExpectedErrors(
+                        await massiveAPI.execute(
+                            request: massiveInvalidTypeQuery,
+                            context: massiveContext
+                        )
+                    )
+                },
+                BenchmarkCase(
+                    name: "request.massive.introspection",
+                    sampleLimit: 10,
+                    warmupLimit: 1
+                ) {
+                    try check(
+                        await massiveAPI.execute(
+                            request: massiveIntrospectionQuery,
+                            context: massiveContext
+                        )
+                    )
+                },
+                BenchmarkCase(
+                    name: "prepared.massive.introspection",
+                    sampleLimit: 10,
+                    warmupLimit: 1
+                ) {
+                    try check(
+                        await massiveAPI.execute(
+                            prepared: massiveIntrospectionOperation,
+                            context: massiveContext
+                        )
+                    )
+                },
+                BenchmarkCase(
+                    name: "prepared.massive.hot.concurrent-\(configuration.concurrency)",
+                    operationsPerSample: configuration.concurrency
+                ) {
+                    try await concurrently(configuration.concurrency) {
+                        try check(
+                            await massiveAPI.execute(
+                                prepared: massiveHotOperation,
+                                context: massiveContext
+                            )
+                        )
+                    }
+                },
+            ]
+        }
+
+        cases = cases.filter { benchmark in
             configuration.filter.map { benchmark.name.localizedCaseInsensitiveContains($0) } ?? true
         }
 
@@ -283,14 +430,19 @@ private enum GraphitiBenchmarks {
                 + padded("p50", to: 11, rightAligned: true) + " "
                 + padded("p95", to: 11, rightAligned: true) + " "
                 + padded("p99", to: 11, rightAligned: true) + " "
+                + padded("n", to: 6, rightAligned: true) + " "
                 + padded("ops/s", to: 12, rightAligned: true)
         )
-        print(String(repeating: "-", count: 117))
+        print(String(repeating: "-", count: 124))
 
+        var results: [String: Statistics] = [:]
         for benchmark in cases {
             let statistics = try await measure(benchmark, configuration: configuration)
+            results[benchmark.name] = statistics
             printResult(benchmark.name, statistics: statistics)
         }
+
+        printMassiveSchemaRatios(results, concurrency: configuration.concurrency)
     }
 
     private static func preparedDocument(_ query: String, for schema: GraphQLSchema) throws -> Document {
@@ -326,6 +478,33 @@ private enum GraphitiBenchmarks {
         }
     }
 
+    private static func checkExpectedErrors(_ result: GraphQLResult) throws {
+        guard !result.errors.isEmpty else {
+            throw BenchmarkError.executionFailed("Execution unexpectedly succeeded")
+        }
+    }
+
+    private static func verifyMassiveSchema(_ schema: GraphQLSchema) throws {
+        let modelTypes = schema.typeMap.values.compactMap { $0 as? GraphQLObjectType }
+            .filter { $0.name.hasPrefix("MassiveType") }
+        let fieldCount = try modelTypes.reduce(into: 0) { count, type in
+            count += try type.fields().count
+        }
+
+        guard modelTypes.count == MassiveSchemaFixture.typeCount else {
+            throw BenchmarkError.executionFailed(
+                "Massive fixture has \(modelTypes.count) model types; expected \(MassiveSchemaFixture.typeCount)"
+            )
+        }
+        guard fieldCount == MassiveSchemaFixture.modelFieldCount else {
+            throw BenchmarkError.executionFailed(
+                "Massive fixture has \(fieldCount) model fields; expected \(MassiveSchemaFixture.modelFieldCount)"
+            )
+        }
+
+        print("Verified \(modelTypes.count) model types and \(fieldCount) model fields.\n")
+    }
+
     private static func concurrently(
         _ count: Int,
         operation: @escaping @Sendable () async throws -> Void
@@ -342,14 +521,16 @@ private enum GraphitiBenchmarks {
         _ benchmark: BenchmarkCase,
         configuration: Configuration
     ) async throws -> Statistics {
-        for _ in 0 ..< configuration.warmup {
+        let warmupCount = min(configuration.warmup, benchmark.warmupLimit ?? configuration.warmup)
+        for _ in 0 ..< warmupCount {
             try await benchmark.operation()
         }
 
+        let sampleCount = min(configuration.samples, benchmark.sampleLimit ?? configuration.samples)
         var samples: [Double] = []
-        samples.reserveCapacity(configuration.samples)
+        samples.reserveCapacity(sampleCount)
 
-        for _ in 0 ..< configuration.samples {
+        for _ in 0 ..< sampleCount {
             let start = DispatchTime.now().uptimeNanoseconds
             try await benchmark.operation()
             let nanoseconds = Double(DispatchTime.now().uptimeNanoseconds - start)
@@ -357,6 +538,51 @@ private enum GraphitiBenchmarks {
         }
 
         return Statistics(samples: samples)
+    }
+
+    private static func printMassiveSchemaRatios(
+        _ results: [String: Statistics],
+        concurrency: Int
+    ) {
+        let comparisons = [
+            ("full request hot query", "request.graphiti.keypath", "request.massive.hot"),
+            ("prepared hot query", "prepared.graphiti.keypath", "prepared.massive.hot"),
+            (
+                "concurrent prepared hot query",
+                "prepared.graphiti.keypath.concurrent-\(concurrency)",
+                "prepared.massive.hot.concurrent-\(concurrency)"
+            ),
+            (
+                "invalid type validation",
+                "request.graphiti.invalid-type",
+                "request.massive.invalid-type"
+            ),
+            (
+                "full request introspection",
+                "request.graphiti.introspection",
+                "request.massive.introspection"
+            ),
+            (
+                "prepared introspection",
+                "prepared.graphiti.introspection",
+                "prepared.massive.introspection"
+            ),
+        ]
+
+        let ratios = comparisons.compactMap { label, smallName, massiveName -> (String, Double)? in
+            guard let small = results[smallName], let massive = results[massiveName] else {
+                return nil
+            }
+            return (label, massive.mean / small.mean)
+        }
+        guard !ratios.isEmpty else {
+            return
+        }
+
+        print("\nMassive/small mean latency ratios (lower is better):")
+        for (label, ratio) in ratios {
+            print("  \(padded(label, to: 38)) \(String(format: "%.2fx", ratio))")
+        }
     }
 
     private static func printResult(_ name: String, statistics: Statistics) {
@@ -367,6 +593,7 @@ private enum GraphitiBenchmarks {
                 + padded(formattedDuration(statistics.median), to: 11, rightAligned: true) + " "
                 + padded(formattedDuration(statistics.p95), to: 11, rightAligned: true) + " "
                 + padded(formattedDuration(statistics.p99), to: 11, rightAligned: true) + " "
+                + padded(String(statistics.sampleCount), to: 6, rightAligned: true) + " "
                 + padded(String(format: "%.0f", operationsPerSecond), to: 12, rightAligned: true)
         )
     }
