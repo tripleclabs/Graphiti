@@ -3,4 +3,8 @@ public typealias SyncResolve<ObjectType, Context, Arguments, ResolveType> = @Sen
 ) -> (
     _ context: Context,
     _ arguments: Arguments
-) throws -> ResolveType
+) throws -> ResolveType where
+    ObjectType: Sendable,
+    Context: Sendable,
+    Arguments: Sendable,
+    ResolveType: Sendable

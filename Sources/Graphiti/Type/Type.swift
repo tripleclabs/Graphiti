@@ -9,7 +9,7 @@ public final class Type<
     Context
 > {
     let interfaces: [Any.Type]
-    var keys: [KeyComponent<ObjectType, Resolver, Context>]
+    var keys: [any KeyComponent<ObjectType, Resolver, Context>]
     let fields: [FieldComponent<ObjectType, Context>]
 
     let isTypeOf: GraphQLIsTypeOf = { source, _ in
@@ -91,7 +91,7 @@ public final class Type<
         type _: ObjectType.Type,
         name: String?,
         interfaces: [Any.Type],
-        keys: [KeyComponent<ObjectType, Resolver, Context>],
+        keys: [any KeyComponent<ObjectType, Resolver, Context>],
         fields: [FieldComponent<ObjectType, Context>]
     ) {
         self.interfaces = interfaces
@@ -143,7 +143,7 @@ public extension Type {
         _ type: ObjectType.Type,
         as name: String? = nil,
         interfaces: [Any.Type] = [],
-        keys: [KeyComponent<ObjectType, Resolver, Context>] = [],
+        keys: [any KeyComponent<ObjectType, Resolver, Context>] = [],
         fields: [FieldComponent<ObjectType, Context>]
     ) {
         self.init(

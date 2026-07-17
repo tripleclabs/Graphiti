@@ -1,7 +1,11 @@
 
-public typealias SubscribeResolve<ObjectType, Context, Arguments, ResolveType> = (
+public typealias SubscribeResolve<ObjectType, Context, Arguments, ResolveType> = @Sendable (
     _ object: ObjectType
 ) -> (
     _ context: Context,
     _ arguments: Arguments
-) async throws -> ResolveType
+) async throws -> ResolveType where
+    ObjectType: Sendable,
+    Context: Sendable,
+    Arguments: Sendable,
+    ResolveType: Sendable

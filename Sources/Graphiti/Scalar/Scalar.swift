@@ -10,7 +10,7 @@ import OrderedCollections
 open class Scalar<
     Resolver: Sendable,
     Context: Sendable,
-    ScalarType: Codable
+    ScalarType: Codable & Sendable
 >: TypeComponent<Resolver, Context> {
     // TODO: Change this no longer be an open class
     let specifiedByURL: String?

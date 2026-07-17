@@ -1,22 +1,16 @@
 import GraphQL
 
-public class KeyComponent<ObjectType, Resolver, Context>: @unchecked Sendable {
-    func mapMatchesArguments(_: Map, coders _: Coders) -> Bool {
-        fatalError()
-    }
+public protocol KeyComponent<ObjectType, Resolver, Context>: Sendable {
+    associatedtype ObjectType: Sendable
+    associatedtype Resolver: Sendable
+    associatedtype Context: Sendable
 
+    func mapMatchesArguments(_ map: Map, coders: Coders) -> Bool
     func resolveMap(
-        resolver _: Resolver,
-        context _: Context,
-        map _: Map,
-        coders _: Coders
-    ) async throws -> (any Sendable)? {
-        fatalError()
-    }
-
-    func validate(
-        againstFields _: [String]
-    ) throws {
-        fatalError()
-    }
+        resolver: Resolver,
+        context: Context,
+        map: Map,
+        coders: Coders
+    ) async throws -> (any Sendable)?
+    func validate(againstFields fieldNames: [String]) throws
 }

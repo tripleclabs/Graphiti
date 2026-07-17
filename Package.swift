@@ -1,20 +1,37 @@
-// swift-tools-version:5.8
+// swift-tools-version:6.2
 import PackageDescription
 
 let package = Package(
     name: "Graphiti",
-    platforms: [.macOS(.v10_15), .iOS(.v13), .tvOS(.v13), .watchOS(.v6)],
+    platforms: [.macOS(.v26), .iOS(.v13), .tvOS(.v13), .watchOS(.v6)],
     products: [
         .library(name: "Graphiti", targets: ["Graphiti"]),
+        .executable(name: "graphiti-benchmarks", targets: ["GraphitiBenchmarks"]),
     ],
     dependencies: [
         .package(url: "https://github.com/tripleclabs/GraphQL.git", revision: "f4db8d80ee62381751b28896377fe6fd7fdcec8c"),
     ],
     targets: [
-        .target(name: "Graphiti", dependencies: ["GraphQL"]),
-        .testTarget(name: "GraphitiTests", dependencies: ["Graphiti"], resources: [
-            .copy("FederationTests/GraphQL"),
-        ]),
+        .target(
+            name: "Graphiti",
+            dependencies: ["GraphQL"],
+            swiftSettings: [.enableUpcomingFeature("SendableMetatypes")]
+        ),
+        .executableTarget(
+            name: "GraphitiBenchmarks",
+            dependencies: [
+                "Graphiti",
+                .product(name: "GraphQL", package: "GraphQL"),
+            ],
+            path: "Benchmarks/GraphitiBenchmarks",
+            swiftSettings: [.enableUpcomingFeature("SendableMetatypes")]
+        ),
+        .testTarget(
+            name: "GraphitiTests",
+            dependencies: ["Graphiti"],
+            resources: [.copy("FederationTests/GraphQL")],
+            swiftSettings: [.enableUpcomingFeature("SendableMetatypes")]
+        ),
     ],
-    swiftLanguageVersions: [.v5, .version("6")]
+    swiftLanguageModes: [.v6]
 )

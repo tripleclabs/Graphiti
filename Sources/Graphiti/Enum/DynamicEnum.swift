@@ -22,7 +22,7 @@ public final class DynamicEnum<
             name: name,
             description: description,
             values: enumValues.reduce(into: [:]) { result, entry in
-                result[entry.name] = try GraphQLEnumValue(
+                result[entry.name] = GraphQLEnumValue(
                     value: .string(entry.name),
                     description: entry.description,
                     deprecationReason: entry.deprecationReason

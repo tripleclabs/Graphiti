@@ -4,10 +4,10 @@ import GraphQL
 
 public class SubscriptionField<
     SourceEventType: Sendable,
-    ObjectType,
-    Context,
+    ObjectType: Sendable,
+    Context: Sendable,
     FieldType: Sendable,
-    Arguments: Decodable,
+    Arguments: Decodable & Sendable,
     SubSequence: AsyncSequence & Sendable
 >: FieldComponent<ObjectType, Context> where SubSequence.Element == SourceEventType {
     let name: String

@@ -4,4 +4,8 @@ public typealias AsyncResolve<ObjectType, Context, Arguments, ResolveType> = @Se
 ) -> (
     _ context: Context,
     _ arguments: Arguments
-) async throws -> ResolveType
+) async throws -> ResolveType where
+    ObjectType: Sendable,
+    Context: Sendable,
+    Arguments: Sendable,
+    ResolveType: Sendable

@@ -138,7 +138,7 @@ public extension Field {
 public extension Field where Arguments == NoArguments {
     convenience init(
         _ name: String,
-        at keyPath: KeyPath<ObjectType, FieldType>
+        at keyPath: KeyPath<ObjectType, FieldType> & Sendable
     ) {
         let syncResolve: SyncResolve<ObjectType, Context, NoArguments, FieldType> = { type in
             { _, _ in
@@ -149,6 +149,3 @@ public extension Field where Arguments == NoArguments {
         self.init(name: name, arguments: [], syncResolve: syncResolve)
     }
 }
-
-/// We must conform KeyPath to unchecked sendable to allow keypath-based resolvers.
-extension KeyPath: @retroactive @unchecked Sendable {}

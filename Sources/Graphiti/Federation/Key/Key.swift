@@ -1,24 +1,20 @@
 import GraphQL
 
-public class Key<
+public final class Key<
     ObjectType: Sendable,
     Resolver: Sendable,
     Context: Sendable,
     Arguments: Codable & Sendable
->: KeyComponent<
-    ObjectType,
-    Resolver,
-    Context
->, @unchecked Sendable {
-    let arguments: [ArgumentComponent<Arguments>]
+>: KeyComponent {
+    let argumentNames: [String]
     let resolve: AsyncResolve<Resolver, Context, Arguments, ObjectType?>
 
-    override func mapMatchesArguments(_ map: Map, coders: Coders) -> Bool {
+    public func mapMatchesArguments(_ map: Map, coders: Coders) -> Bool {
         let args = try? coders.decoder.decode(Arguments.self, from: map)
         return args != nil
     }
 
-    override func resolveMap(
+    public func resolveMap(
         resolver: Resolver,
         context: Context,
         map: Map,
@@ -28,33 +24,22 @@ public class Key<
         return try await resolve(resolver)(context, arguments)
     }
 
-    override func validate(
+    public func validate(
         againstFields fieldNames: [String]
     ) throws {
         // Ensure that every argument is included in the provided field list
-        for name in arguments.map({ $0.getName() }) {
+        for name in argumentNames {
             if !fieldNames.contains(name) {
                 throw GraphQLError(message: "Argument name not found in type fields: \(name)")
             }
         }
     }
 
-    func arguments(typeProvider: TypeProvider, coders: Coders) throws -> GraphQLArgumentConfigMap {
-        var map: GraphQLArgumentConfigMap = [:]
-
-        for argument in arguments {
-            let (name, argument) = try argument.argument(typeProvider: typeProvider, coders: coders)
-            map[name] = argument
-        }
-
-        return map
-    }
-
     init(
         arguments: [ArgumentComponent<Arguments>],
         asyncResolve: @escaping AsyncResolve<Resolver, Context, Arguments, ObjectType?>
     ) {
-        self.arguments = arguments
+        argumentNames = arguments.map { $0.getName() }
         resolve = asyncResolve
     }
 
