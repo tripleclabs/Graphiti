@@ -8,7 +8,7 @@ let package = Package(
         .library(name: "Graphiti", targets: ["Graphiti"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/tripleclabs/GraphQL.git", revision: "f4db8d80ee62381751b28896377fe6fd7fdcec8c"),
+        .package(url: "https://github.com/tripleclabs/GraphQL.git", revision: "4690d35c151857528960748ec0038192fe71b7b4"),
     ],
     targets: [
         .target(name: "Graphiti", dependencies: ["GraphQL"]),
