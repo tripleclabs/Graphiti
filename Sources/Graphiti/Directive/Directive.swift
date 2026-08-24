@@ -4,7 +4,7 @@ import GraphQL
 ///
 /// The definition is rendered into SDL and is what applied directives are
 /// validated against. Apply it with `.directive(_:_:)` on any component.
-public final class Directive<Resolver: Sendable, Context: Sendable>: Component<Resolver, Context> {
+public final class Directive<Resolver: Sendable, Context: Sendable>: TypeComponent<Resolver, Context> {
     let locations: [DirectiveLocation]
     let isRepeatable: Bool
     let arguments: [DirectiveArgument]
