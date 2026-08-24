@@ -265,27 +265,39 @@ struct TickAPI: API {
         #expect(payload.errors.first?.message.contains("cannot transform tick") == true)
     }
 
-    /// The GraphQL spec allows exactly one root field in a subscription, but
-    /// `SingleFieldSubscriptionsRule` is commented out of the GraphQL layer's
-    /// `SpecifiedRules.swift` and was never implemented. This pins what actually
-    /// happens today: the operation is accepted, one source stream is created,
-    /// and every root field resolves off it into a single payload.
-    ///
-    /// Change this test if that rule is ever implemented — the spec-correct
-    /// outcome is a validation failure.
-    @Test func multipleRootFieldsAreAcceptedDespiteTheSpec() async throws {
-        let context = TickContext()
-        let subscription = try await api.subscribe(
+    /// https://spec.graphql.org/draft/#sec-Single-root-field
+    @Test func multipleRootFieldsAreRejected() async throws {
+        let outcome = try await api.subscribe(
             request: "subscription { ticks { value } echoChannel(channel: \"a\") }",
-            context: context
-        ).get()
-        var iterator = subscription.makeAsyncIterator()
+            context: TickContext()
+        )
 
-        await context.pubsub.publish(Tick(channel: "a", value: "one"))
+        switch outcome {
+        case .success:
+            Issue.record("Expected a subscription with two root fields to be rejected")
+        case let .failure(errors):
+            #expect(
+                errors.errors.first?.message ==
+                    "Anonymous Subscription must select only one field."
+            )
+        }
+    }
 
-        let payload = try #require(try await iterator.next())
-        #expect(payload.errors.isEmpty)
-        #expect(payload.data?["ticks"]["value"].string == "one")
-        #expect(payload.data?["echoChannel"].string == "a")
+    /// The single root field must also not be an introspection field.
+    @Test func introspectionRootFieldIsRejected() async throws {
+        let outcome = try await api.subscribe(
+            request: "subscription { __typename }",
+            context: TickContext()
+        )
+
+        switch outcome {
+        case .success:
+            Issue.record("Expected an introspection root field to be rejected")
+        case let .failure(errors):
+            #expect(
+                errors.errors.first?.message ==
+                    "Anonymous Subscription must not select an introspection top level field."
+            )
+        }
     }
 }
