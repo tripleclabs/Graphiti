@@ -30,7 +30,7 @@ public final class Schema<Resolver: Sendable, Context: Sendable>: Sendable {
             mutation: typeProvider.mutation,
             subscription: typeProvider.subscription,
             types: typeProvider.types,
-            directives: typeProvider.directives
+            directives: specifiedDirectives + typeProvider.directives
         )
 
         // GraphQL caches schema validation lazily without synchronizing the initial write.

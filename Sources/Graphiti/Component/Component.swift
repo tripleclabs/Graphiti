@@ -26,6 +26,7 @@ public extension Component {
 enum ComponentType {
     case none
     case connection
+    case directive
     case `enum`
     case input
     case interface
