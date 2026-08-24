@@ -3,6 +3,7 @@ import GraphQL
 public class FieldComponent<ObjectType, Context> {
     var description: String?
     var deprecationReason: String?
+    public var appliedDirectives: [AppliedDirective] = []
 
     func field(typeProvider _: TypeProvider, coders _: Coders) throws -> (String, GraphQLField) {
         fatalError()
@@ -20,3 +21,5 @@ public extension FieldComponent {
         return self
     }
 }
+
+extension FieldComponent: DirectiveAnnotatable {}

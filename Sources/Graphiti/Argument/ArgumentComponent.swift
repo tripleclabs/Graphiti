@@ -2,6 +2,7 @@ import GraphQL
 
 public class ArgumentComponent<ArgumentsType: Decodable> {
     var description: String?
+    public var appliedDirectives: [AppliedDirective] = []
 
     func argument(
         typeProvider _: TypeProvider,
@@ -21,3 +22,5 @@ public extension ArgumentComponent {
         return self
     }
 }
+
+extension ArgumentComponent: DirectiveAnnotatable {}

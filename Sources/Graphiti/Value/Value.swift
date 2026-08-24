@@ -1,7 +1,9 @@
+import GraphQL
 public final class Value<EnumType: Encodable & RawRepresentable> where EnumType.RawValue == String {
     let value: EnumType
     var description: String?
     var deprecationReason: String?
+    public var appliedDirectives: [AppliedDirective] = []
 
     init(
         value: EnumType
@@ -27,3 +29,5 @@ public extension Value {
         return self
     }
 }
+
+extension Value: DirectiveAnnotatable {}

@@ -4,6 +4,7 @@ open class Component<Resolver: Sendable, Context: Sendable> {
     let name: String
     var description: String?
     var componentType: ComponentType
+    public var appliedDirectives: [AppliedDirective] = []
 
     init(name: String, type: ComponentType) {
         self.name = name
@@ -36,3 +37,5 @@ enum ComponentType {
     case types
     case union
 }
+
+extension Component: DirectiveAnnotatable {}
