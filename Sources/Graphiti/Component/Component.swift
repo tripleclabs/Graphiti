@@ -33,6 +33,7 @@ enum ComponentType {
     case mutation
     case query
     case scalar
+    case schemaDirectives
     case subscription
     case type
     case types
@@ -58,6 +59,8 @@ extension ComponentType {
             return .union
         case .scalar:
             return .scalar
+        case .schemaDirectives:
+            return .schema
         case .directive, .types, .none:
             return nil
         }

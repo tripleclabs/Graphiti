@@ -78,7 +78,12 @@ final class SchemaTypeProvider: TypeProvider {
         guard let location = component.componentType.directiveLocation else {
             return
         }
-        register(component.appliedDirectives, at: .type(component.name), as: location)
+        // `SchemaDirectives` declares no named type; its applications belong to
+        // the schema definition rather than to a type called "".
+        let target: DirectiveTarget = component.componentType == .schemaDirectives
+            ? .schema
+            : .type(component.name)
+        register(component.appliedDirectives, at: target, as: location)
     }
 
     func add(type: Any.Type, as graphQLType: GraphQLNamedType) throws {
