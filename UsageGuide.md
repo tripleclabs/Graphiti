@@ -570,6 +570,71 @@ Directives are schema metadata only — Graphiti does not give them execution
 semantics, and GraphQL introspection cannot expose applied directives at all, so
 consumers must read the printed SDL.
 
+### Querying and projecting by directive
+
+`schema.appliedDirectives` exposes every directive application, keyed by
+location, so a schema can be queried in plain Swift:
+
+```swift
+let billingFields = schema.appliedDirectives.compactMap { target, directives -> String? in
+    guard
+        case let .member(type, member) = target, type == "Query",
+        directives.contains(where: {
+            $0.name == "theme" && $0.argument("names", contains: "billing")
+        })
+    else { return nil }
+    return member
+}
+```
+
+`projection(rootFieldsWhere:)` turns such a predicate into a smaller schema
+containing only the matching root fields and the types reachable from them:
+
+```swift
+let billingView = try schema.projection { _, _, directives in
+    directives.contains { $0.name == "theme" && $0.argument("names", contains: "billing") }
+}
+
+print(billingView.sdl())
+```
+
+```graphql
+directive @theme(names: [String!]!) on FIELD_DEFINITION
+
+type Query {
+  billing: BillingAccount! @theme(names: ["billing"])
+}
+
+type BillingAccount {
+  id: String!
+}
+
+type Mutation {
+  pay: String! @theme(names: ["billing"])
+}
+```
+
+The projection executes as well as prints, so `billingView.execute(...)` works
+against the same resolvers. Nothing is cached — hold onto the result for as long
+as you need it.
+
+The predicate also receives the root type name, so a view can be scoped to one
+operation kind:
+
+```swift
+try schema.projection { rootType, field, directives in
+    rootType == "Query" && directives.contains { $0.name == "theme" }
+}
+```
+
+Two things to know. A projection must contain at least one query field, because
+GraphQL requires a query root — a predicate matching only mutations throws.
+And if a kept root field *returns* an interface, every type implementing that
+interface is pulled in, along with everything they reference, because otherwise
+the concrete type could not be resolved at runtime. Returning concrete types
+keeps views small; merely implementing an interface does not inflate a view,
+only returning one does.
+
 ## Federation
 
 Federation allows you split your GraphQL API into smaller services and link them back together so clients see a single larger API. More information can be found [here](https://www.apollographql.com/docs/federation). To enable federation you must:
