@@ -15,7 +15,13 @@ public class SubscriptionField<
     override func getName() -> String {
         name
     }
+
     let arguments: [ArgumentComponent<Arguments>]
+
+    override func argumentDirectives() -> [(String, [AppliedDirective])] {
+        arguments.map { ($0.getName(), $0.appliedDirectives) }
+    }
+
     let resolve: AsyncResolve<SourceEventType, Context, Arguments, (any Sendable)?>
     let subscribe: AsyncResolve<ObjectType, Context, Arguments, SubSequence>
 
