@@ -38,6 +38,20 @@ public final class Type<
 
         try typeProvider.add(type: ObjectType.self, as: objectType)
 
+        for field in fields {
+            let fieldName = field.getName()
+            typeProvider.register(
+                field.appliedDirectives,
+                at: .member(type: name, member: fieldName)
+            )
+            for (argumentName, directives) in field.argumentDirectives() {
+                typeProvider.register(
+                    directives,
+                    at: .argument(type: name, field: fieldName, argument: argumentName)
+                )
+            }
+        }
+
         // If federation keys are included, create resolver closure
         if !keys.isEmpty {
             let keys = self.keys

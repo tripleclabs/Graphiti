@@ -17,6 +17,7 @@ public final class Schema<Resolver: Sendable, Context: Sendable>: Sendable {
 
         for component in components {
             try component.update(typeProvider: typeProvider, coders: coders)
+            typeProvider.registerTypeDirectives(for: component)
         }
 
         guard typeProvider.query != nil || !typeProvider.federatedResolvers.isEmpty else {

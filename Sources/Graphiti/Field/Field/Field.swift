@@ -11,6 +11,14 @@ public class Field<
 > {
     let name: String
     let arguments: [ArgumentComponent<Arguments>]
+
+    override func getName() -> String {
+        name
+    }
+
+    override func argumentDirectives() -> [(String, [AppliedDirective])] {
+        arguments.map { ($0.getName(), $0.appliedDirectives) }
+    }
     let resolve: AsyncResolve<ObjectType, Context, Arguments, (any Sendable)?>
 
     override func field(

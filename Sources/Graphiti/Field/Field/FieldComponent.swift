@@ -8,6 +8,17 @@ public class FieldComponent<ObjectType, Context> {
     func field(typeProvider _: TypeProvider, coders _: Coders) throws -> (String, GraphQLField) {
         fatalError()
     }
+
+    func getName() -> String {
+        fatalError()
+    }
+
+    /// Directives applied to this field's arguments, keyed by argument name.
+    ///
+    /// Type-erased because `Arguments` is generic on the concrete subclass.
+    func argumentDirectives() -> [(String, [AppliedDirective])] {
+        []
+    }
 }
 
 public extension FieldComponent {

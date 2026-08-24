@@ -7,6 +7,10 @@ public class InputFieldComponent<InputObjectType, Context> {
     func field(typeProvider _: TypeProvider) throws -> (String, InputObjectField) {
         fatalError()
     }
+
+    func getName() -> String {
+        fatalError()
+    }
 }
 
 public extension InputFieldComponent {

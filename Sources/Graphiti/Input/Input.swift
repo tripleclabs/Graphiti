@@ -22,6 +22,13 @@ public final class Input<
         )
 
         try typeProvider.add(type: InputObjectType.self, as: inputObjectType)
+
+        for field in fields {
+            typeProvider.register(
+                field.appliedDirectives,
+                at: .member(type: name, member: field.getName())
+            )
+        }
     }
 
     func fields(typeProvider: TypeProvider) throws -> InputObjectFieldMap {

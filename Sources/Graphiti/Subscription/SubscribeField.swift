@@ -11,6 +11,10 @@ public class SubscriptionField<
     SubSequence: AsyncSequence & Sendable
 >: FieldComponent<ObjectType, Context> where SubSequence.Element == SourceEventType {
     let name: String
+
+    override func getName() -> String {
+        name
+    }
     let arguments: [ArgumentComponent<Arguments>]
     let resolve: AsyncResolve<SourceEventType, Context, Arguments, (any Sendable)?>
     let subscribe: AsyncResolve<ObjectType, Context, Arguments, SubSequence>

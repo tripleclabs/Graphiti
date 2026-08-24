@@ -24,6 +24,13 @@ public final class Enum<
         )
 
         try typeProvider.add(type: EnumType.self, as: enumType)
+
+        for value in values {
+            typeProvider.register(
+                value.appliedDirectives,
+                at: .member(type: name, member: value.value.rawValue)
+            )
+        }
     }
 
     private init(

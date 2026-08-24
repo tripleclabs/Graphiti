@@ -9,6 +9,10 @@ public class InputField<
     Context
 > {
     let name: String
+
+    override func getName() -> String {
+        name
+    }
     var defaultValue: AnyEncodable?
 
     override func field(typeProvider: TypeProvider) throws -> (String, InputObjectField) {

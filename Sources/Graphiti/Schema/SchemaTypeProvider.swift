@@ -24,6 +24,26 @@ final class SchemaTypeProvider: TypeProvider {
     var subscription: GraphQLObjectType?
     var types: [GraphQLNamedType] = []
     var directives: [GraphQLDirective] = []
+    var appliedDirectiveMap: AppliedDirectiveMap = [:]
+
+    func register(_ directives: [AppliedDirective], at target: DirectiveTarget) {
+        guard !directives.isEmpty else {
+            return
+        }
+        appliedDirectiveMap[target, default: []].append(contentsOf: directives)
+    }
+
+    /// Records the directives a component applies to its own named type.
+    ///
+    /// Every type-level component reaches the schema through the same loop, so
+    /// this runs once there rather than being copied into each `update`.
+    /// Directive *declarations* are skipped — their name is a directive, not a type.
+    func registerTypeDirectives<Resolver, Context>(for component: Component<Resolver, Context>) {
+        guard component.componentType != .directive else {
+            return
+        }
+        register(component.appliedDirectives, at: .type(component.name))
+    }
 
     func add(type: Any.Type, as graphQLType: GraphQLNamedType) throws {
         try map(type, to: graphQLType)

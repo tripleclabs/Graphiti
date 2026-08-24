@@ -21,6 +21,20 @@ public final class Interface<
         )
 
         try typeProvider.add(type: InterfaceType.self, as: interfaceType)
+
+        for field in fields {
+            let fieldName = field.getName()
+            typeProvider.register(
+                field.appliedDirectives,
+                at: .member(type: name, member: fieldName)
+            )
+            for (argumentName, directives) in field.argumentDirectives() {
+                typeProvider.register(
+                    directives,
+                    at: .argument(type: name, field: fieldName, argument: argumentName)
+                )
+            }
+        }
     }
 
     func fields(typeProvider: TypeProvider, coders: Coders) throws -> GraphQLFieldMap {
