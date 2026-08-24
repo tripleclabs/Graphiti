@@ -490,6 +490,86 @@ The result of this query is a `GraphQLResult` that encodes to the following JSON
 }
 ```
 
+## Directives
+
+GraphQL directives annotate a schema with metadata. Graphiti can declare custom
+directive definitions and apply them at any type-system location, then render
+both into SDL — useful when the SDL is consumed by code generators, schema
+registries, or gateways that read directives as metadata.
+
+Declare a directive with the `Directive` component, alongside your types:
+
+```swift
+Directive("model", on: .object) {
+    DirectiveArgument("table", at: String.self)
+}
+Directive("auth", on: .fieldDefinition) {
+    DirectiveArgument("role", at: Role.self)
+}
+Directive("tag", on: .fieldDefinition, repeatable: true) {
+    DirectiveArgument("name", at: String.self)
+}
+```
+
+A non-optional Swift type declares a required argument, so `String.self` above
+becomes `table: String!`. Use `String?.self` for a nullable one.
+
+Apply directives with `.directive(_:_:)`, which is available on every component
+— types, fields, arguments, input fields and enum values:
+
+```swift
+Type(User.self) {
+    Field("email", at: \.email)
+        .directive("auth", ("role", "ADMIN"))
+        .directive("tag", ("name", "pii"))
+    Field("role", at: \.role)
+}
+.directive("model", ("table", "users"))
+```
+
+Arguments are ordered name/value pairs rather than a dictionary, so the emitted
+SDL is byte-stable across builds — important when the output is committed.
+
+Render the schema with `sdl()`:
+
+```swift
+print(schema.sdl())
+```
+
+```graphql
+directive @model(table: String!) on OBJECT
+
+directive @auth(role: Role!) on FIELD_DEFINITION
+
+directive @tag(name: String!) repeatable on FIELD_DEFINITION
+
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+type User @model(table: "users") {
+  email: String! @auth(role: ADMIN) @tag(name: "pii")
+  role: Role!
+}
+```
+
+Note that `("role", "ADMIN")` renders as `@auth(role: ADMIN)` — unquoted —
+because the value is resolved against the declared argument type, which is an
+enum. The same string against a `String` argument renders quoted.
+
+> **Important:** applied directives are held alongside the schema rather than on
+> its type objects, so calling `printSchema(schema: schema.schema)` directly
+> returns SDL *without* them. Always use `schema.sdl()`.
+
+Applying a directive that was never declared, at a location its declaration does
+not list, with an unknown or missing argument, or more than once when it is not
+`repeatable`, throws a `SchemaError` when the schema is built.
+
+Directives are schema metadata only — Graphiti does not give them execution
+semantics, and GraphQL introspection cannot expose applied directives at all, so
+consumers must read the printed SDL.
+
 ## Federation
 
 Federation allows you split your GraphQL API into smaller services and link them back together so clients see a single larger API. More information can be found [here](https://www.apollographql.com/docs/federation). To enable federation you must:
