@@ -59,13 +59,6 @@ struct AsyncHelloResolver: Sendable {
         await context.pubsub.subscribe()
     }
 
-    func futureSubscribeUser(
-        context: AsyncHelloContext,
-        arguments _: NoArguments
-    ) async -> AsyncThrowingStream<User, Error> {
-        await context.pubsub.subscribe()
-    }
-
     func asyncSubscribeUser(
         context: AsyncHelloContext,
         arguments _: NoArguments
@@ -153,11 +146,6 @@ struct HelloAsyncAPI: API {
                 atSub: AsyncHelloResolver.subscribeUser
             )
 
-            SubscriptionField(
-                "futureSubscribeUser",
-                as: User.self,
-                atSub: AsyncHelloResolver.subscribeUser
-            )
             SubscriptionField(
                 "asyncSubscribeUser",
                 as: User.self,
@@ -263,40 +251,6 @@ struct HelloWorldAsyncTests {
                         "id": "124",
                         "name": "Jerry",
                     ],
-                ],
-            ])
-        )
-    }
-
-    /// Tests that subscription resolvers that return futures work
-    @Test
-    @available(macOS 12, iOS 15, watchOS 8, tvOS 15, *)
-    func futureSubscription() async throws {
-        let context = AsyncHelloContext()
-        let request = """
-        subscription {
-            futureSubscribeUser {
-                id
-                name
-            }
-        }
-        """
-
-        let subscription = try await api.subscribe(
-            request: request,
-            context: context
-        ).get()
-        var iterator = subscription.makeAsyncIterator()
-
-        await context.pubsub.publish(event: User(id: "124", name: "Jerry", friends: nil))
-
-        let result = try await iterator.next()
-        #expect(
-            result ==
-            GraphQLResult(data: [
-                "futureSubscribeUser": [
-                    "id": "124",
-                    "name": "Jerry",
                 ],
             ])
         )
