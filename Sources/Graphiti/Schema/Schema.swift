@@ -6,7 +6,11 @@ public struct SchemaError: Error, Equatable {
 
 public final class Schema<Resolver: Sendable, Context: Sendable>: Sendable {
     public let schema: GraphQLSchema
-    let appliedDirectives: AppliedDirectiveMap
+    /// Every directive application in this schema, keyed by schema location.
+    ///
+    /// Filter this to answer questions like "which root fields carry this
+    /// directive with this value?" — see `AppliedDirective.argument(_:contains:)`.
+    public let appliedDirectives: AppliedDirectiveMap
 
     public init(
         coders: Coders = Coders(),
@@ -50,6 +54,13 @@ public final class Schema<Resolver: Sendable, Context: Sendable>: Sendable {
 
         appliedDirectives = typeProvider.appliedDirectiveMap
         self.schema = schema
+    }
+
+    /// Wraps an already-built GraphQL schema. Used by projection, which
+    /// constructs its schema rather than building one from components.
+    init(schema: GraphQLSchema, appliedDirectives: AppliedDirectiveMap) {
+        self.schema = schema
+        self.appliedDirectives = appliedDirectives
     }
 }
 
