@@ -530,6 +530,32 @@ Type(User.self) {
 Arguments are ordered name/value pairs rather than a dictionary, so the emitted
 SDL is byte-stable across builds — important when the output is committed.
 
+### Directives on the schema definition
+
+Every component above declares a named type, so none of them can carry a
+directive applied to the `schema { }` block itself. `SchemaDirectives` is the
+component for that location. It declares no type of its own and exists only to
+carry applications:
+
+```swift
+Directive("validator", on: .schema, repeatable: true) {
+    DirectiveArgument("name", at: String.self)
+}
+SchemaDirectives()
+    .directive("validator", ("name", "lua-typecheck"))
+    .directive("validator", ("name", "sql-lint"))
+```
+
+```graphql
+schema @validator(name: "lua-typecheck") @validator(name: "sql-lint") {
+  query: Query
+}
+```
+
+Applications are emitted in the order written. They are addressable in
+`schema.appliedDirectives` under `DirectiveTarget.schema`, which is how a
+consumer reading the map finds them.
+
 Render the schema with `sdl()`:
 
 ```swift
