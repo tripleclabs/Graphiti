@@ -26,12 +26,14 @@ public final class Interface<
             let fieldName = field.getName()
             typeProvider.register(
                 field.appliedDirectives,
-                at: .member(type: name, member: fieldName)
+                at: .member(type: name, member: fieldName),
+                as: .fieldDefinition
             )
             for (argumentName, directives) in field.argumentDirectives() {
                 typeProvider.register(
                     directives,
-                    at: .argument(type: name, field: fieldName, argument: argumentName)
+                    at: .argument(type: name, field: fieldName, argument: argumentName),
+                    as: .argumentDefinition
                 )
             }
         }

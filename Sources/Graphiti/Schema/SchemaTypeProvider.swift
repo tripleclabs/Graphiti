@@ -26,11 +26,21 @@ final class SchemaTypeProvider: TypeProvider {
     var directives: [GraphQLDirective] = []
     var appliedDirectiveMap: AppliedDirectiveMap = [:]
 
-    func register(_ directives: [AppliedDirective], at target: DirectiveTarget) {
+    /// Locations are tracked separately from the render map because a single
+    /// `DirectiveTarget.member` covers object fields, input fields and enum
+    /// values; validation has to tell them apart.
+    var targetLocations: [DirectiveTarget: DirectiveLocation] = [:]
+
+    func register(
+        _ directives: [AppliedDirective],
+        at target: DirectiveTarget,
+        as location: DirectiveLocation
+    ) {
         guard !directives.isEmpty else {
             return
         }
         appliedDirectiveMap[target, default: []].append(contentsOf: directives)
+        targetLocations[target] = location
     }
 
     /// Records the directives a component applies to its own named type.
@@ -39,10 +49,10 @@ final class SchemaTypeProvider: TypeProvider {
     /// this runs once there rather than being copied into each `update`.
     /// Directive *declarations* are skipped — their name is a directive, not a type.
     func registerTypeDirectives<Resolver, Context>(for component: Component<Resolver, Context>) {
-        guard component.componentType != .directive else {
+        guard let location = component.componentType.directiveLocation else {
             return
         }
-        register(component.appliedDirectives, at: .type(component.name))
+        register(component.appliedDirectives, at: .type(component.name), as: location)
     }
 
     func add(type: Any.Type, as graphQLType: GraphQLNamedType) throws {

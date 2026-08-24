@@ -6,6 +6,7 @@ public struct SchemaError: Error, Equatable {
 
 public final class Schema<Resolver: Sendable, Context: Sendable>: Sendable {
     public let schema: GraphQLSchema
+    let appliedDirectives: AppliedDirectiveMap
 
     public init(
         coders: Coders = Coders(),
@@ -26,6 +27,12 @@ public final class Schema<Resolver: Sendable, Context: Sendable>: Sendable {
             )
         }
 
+        try validateAppliedDirectives(
+            typeProvider.appliedDirectiveMap,
+            locations: typeProvider.targetLocations,
+            against: specifiedDirectives + typeProvider.directives
+        )
+
         let schema = try GraphQLSchema(
             query: typeProvider.query,
             mutation: typeProvider.mutation,
@@ -41,7 +48,21 @@ public final class Schema<Resolver: Sendable, Context: Sendable>: Sendable {
             throw GraphQLErrors(validationErrors)
         }
 
+        appliedDirectives = typeProvider.appliedDirectiveMap
         self.schema = schema
+    }
+}
+
+public extension Schema {
+    /// The schema rendered as SDL, including any custom directives declared and
+    /// applied through the DSL.
+    ///
+    /// - Note: Calling `printSchema(schema:)` on the underlying `GraphQLSchema`
+    ///   will *not* include applied directives. They are held alongside the
+    ///   schema rather than on its type objects, so they must be passed to the
+    ///   printer explicitly, which is what this does.
+    func sdl() -> String {
+        printSchema(schema: schema, appliedDirectives: appliedDirectives)
     }
 }
 

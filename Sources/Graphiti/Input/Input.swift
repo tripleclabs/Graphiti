@@ -26,7 +26,8 @@ public final class Input<
         for field in fields {
             typeProvider.register(
                 field.appliedDirectives,
-                at: .member(type: name, member: field.getName())
+                at: .member(type: name, member: field.getName()),
+                as: .inputFieldDefinition
             )
         }
     }

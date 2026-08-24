@@ -28,7 +28,8 @@ public final class Enum<
         for value in values {
             typeProvider.register(
                 value.appliedDirectives,
-                at: .member(type: name, member: value.value.rawValue)
+                at: .member(type: name, member: value.value.rawValue),
+                as: .enumValue
             )
         }
     }

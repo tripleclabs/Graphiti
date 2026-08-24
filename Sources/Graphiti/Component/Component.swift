@@ -40,3 +40,26 @@ enum ComponentType {
 }
 
 extension Component: DirectiveAnnotatable {}
+
+extension ComponentType {
+    /// The spec location a directive applied to this component targets, or nil
+    /// when the component declares no named type of its own.
+    var directiveLocation: DirectiveLocation? {
+        switch self {
+        case .type, .connection, .query, .mutation, .subscription:
+            return .object
+        case .enum:
+            return .enum
+        case .input:
+            return .inputObject
+        case .interface:
+            return .interface
+        case .union:
+            return .union
+        case .scalar:
+            return .scalar
+        case .directive, .types, .none:
+            return nil
+        }
+    }
+}
