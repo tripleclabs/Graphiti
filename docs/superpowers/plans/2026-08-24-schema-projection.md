@@ -1006,10 +1006,11 @@ try schema.projection { rootType, field, directives in
 
 Two things to know. A projection must contain at least one query field, because
 GraphQL requires a query root — a predicate matching only mutations throws.
-And if a kept root field returns an interface, every type implementing that
+And if a kept root field *returns* an interface, every type implementing that
 interface is pulled in, along with everything they reference, because otherwise
 the concrete type could not be resolved at runtime. Returning concrete types
-from tagged root fields keeps views small.
+keeps views small — merely implementing an interface does not inflate a view,
+only returning one does.
 ````
 
 - [ ] **Step 2: Verify the documented example compiles**

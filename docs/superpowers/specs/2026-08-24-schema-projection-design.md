@@ -158,18 +158,32 @@ Consequently a projection whose retained root field returns `interface Node`
 includes `Node` but not `User` or `Product`. Resolving a concrete type at
 runtime would then fail. Unions are unaffected.
 
-**Fix:** before constructing, walk the retained closure; for every interface in
-it, add the implementing types from `GraphQLSchema.implementations`
-(`Type/Schema.swift:46`, already public) via the `types:` parameter. This
-iterates to a fixed point, because an added implementation has fields that pull
-in further types, which may retain further interfaces.
+**Fix:** before constructing, add the implementing types from
+`GraphQLSchema.implementations` (`Type/Schema.swift:46`, already public) via the
+`types:` parameter. This iterates to a fixed point, because an added
+implementation has fields that pull in further types, which may retain further
+interfaces.
 
-**Known trade-off.** Interface completeness fights view smallness. A tagged
-field returning a bare interface drags in every implementor and everything they
-reference, so a 40-type view can become 300. An executable projection cannot
-avoid this. Completeness is therefore the default and there is **no opt-out
-flag**: measure against the real schema first, since the better remedy may be
-"do not return bare interfaces from tagged root fields" rather than an API knob.
+**Scope: returnable interfaces only.** Implementations are added only for
+interfaces appearing in an **output-type position** on some retained field —
+that is the only case where the runtime must resolve a concrete type. An
+interface present merely because a retained object *declares* it can never be
+returned by anything in the view, so its other implementors are not needed.
+
+This distinction is load-bearing for view size. Type closure walks an object up
+to its declared interfaces, so completing every interface in the closure means a
+root field returning a single concrete type pulls in every sibling implementing
+the same interface. Measured on a synthetic 900-root, 331-type schema with 20
+widely-implemented interfaces, a concrete-returning view was 27 types under the
+broad rule and **13** under this one; an interface-returning view is 27 either
+way, correctly.
+
+**Remaining trade-off.** A tagged field that returns a bare interface still
+drags in every implementor and everything they reference, and an executable
+projection cannot avoid that. There is **no opt-out flag**. Returning concrete
+types from tagged root fields does keep views small — but only because of the
+scoping above; without it, implementing a common interface would be enough to
+inflate a view.
 
 ### Directive map on a projection
 
