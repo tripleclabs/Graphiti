@@ -22,6 +22,8 @@ public final class Subscription<
             },
             isTypeOf: isTypeOf
         )
+
+        typeProvider.registerFieldDirectives(fields, onType: name)
     }
 
     func fields(typeProvider: TypeProvider, coders: Coders) throws -> GraphQLFieldMap {

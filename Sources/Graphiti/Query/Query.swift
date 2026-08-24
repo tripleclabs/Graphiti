@@ -41,6 +41,8 @@ public final class Query<Resolver: Sendable, Context: Sendable>: Component<Resol
             },
             isTypeOf: isTypeOf
         )
+
+        typeProvider.registerFieldDirectives(fields, onType: name)
     }
 
     func fields(typeProvider: TypeProvider, coders: Coders) throws -> GraphQLFieldMap {

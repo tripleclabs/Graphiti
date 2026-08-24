@@ -43,6 +43,32 @@ final class SchemaTypeProvider: TypeProvider {
         targetLocations[target] = location
     }
 
+    /// Records the directives applied to a set of fields and their arguments.
+    ///
+    /// Object fields reach the schema through five components (`Type`,
+    /// `Interface`, `Query`, `Mutation`, `Subscription`), so this lives here
+    /// rather than being copied into each of them.
+    func registerFieldDirectives<ObjectType, Context>(
+        _ fields: [FieldComponent<ObjectType, Context>],
+        onType typeName: String
+    ) {
+        for field in fields {
+            let fieldName = field.getName()
+            register(
+                field.appliedDirectives,
+                at: .member(type: typeName, member: fieldName),
+                as: .fieldDefinition
+            )
+            for (argumentName, directives) in field.argumentDirectives() {
+                register(
+                    directives,
+                    at: .argument(type: typeName, field: fieldName, argument: argumentName),
+                    as: .argumentDefinition
+                )
+            }
+        }
+    }
+
     /// Records the directives a component applies to its own named type.
     ///
     /// Every type-level component reaches the schema through the same loop, so

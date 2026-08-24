@@ -16,6 +16,8 @@ public final class Mutation<Resolver: Sendable, Context: Sendable>: Component<Re
             },
             isTypeOf: isTypeOf
         )
+
+        typeProvider.registerFieldDirectives(fields, onType: name)
     }
 
     func fields(typeProvider: TypeProvider, coders: Coders) throws -> GraphQLFieldMap {
