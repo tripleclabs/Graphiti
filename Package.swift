@@ -9,7 +9,7 @@ let package = Package(
         .executable(name: "graphiti-benchmarks", targets: ["GraphitiBenchmarks"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/tripleclabs/GraphQL.git", revision: "e593b0696a3c0ca439bed088829b7c02a269625a"),
+        .package(url: "https://github.com/tripleclabs/GraphQL.git", exact: "4.2.0"),
     ],
     targets: [
         .target(
