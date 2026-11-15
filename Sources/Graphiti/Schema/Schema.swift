@@ -1,5 +1,13 @@
 import GraphQL
 
+/// Use prevalidated only when a trusted build artifact has already passed schema
+/// and applied-directive validation against this exact runtime/host contract.
+/// Request input coercion, authorization and execution checks remain unchanged.
+public enum SchemaConstructionValidation: Sendable {
+    case validate
+    case prevalidatedArtifact
+}
+
 public struct SchemaError: Error, Equatable {
     let description: String
 }
@@ -12,10 +20,20 @@ public final class Schema<Resolver: Sendable, Context: Sendable>: Sendable {
     /// directive with this value?" — see `AppliedDirective.argument(_:contains:)`.
     public let appliedDirectives: AppliedDirectiveMap
 
-    public init(
+    public convenience init(
         coders: Coders = Coders(),
         federatedSDL: String? = nil,
         components: [Component<Resolver, Context>]
+    ) throws {
+        try self.init(coders: coders, federatedSDL: federatedSDL, components: components, runtime: nil)
+    }
+
+    public init(
+        coders: Coders = Coders(),
+        federatedSDL: String? = nil,
+        components: [Component<Resolver, Context>],
+        validation: SchemaConstructionValidation = .validate,
+        runtime: ((RuntimeSchemaBuilder) throws -> Void)?
     ) throws {
         let typeProvider = SchemaTypeProvider()
         typeProvider.federatedSDL = federatedSDL
@@ -25,31 +43,50 @@ public final class Schema<Resolver: Sendable, Context: Sendable>: Sendable {
             typeProvider.registerTypeDirectives(for: component)
         }
 
+        let runtimeBuilder = runtime.map { _ in RuntimeSchemaBuilder(typeProvider) }
+        if let runtimeBuilder, let runtime {
+            defer { runtimeBuilder.finish() }
+            try runtime(runtimeBuilder)
+        }
+
         guard typeProvider.query != nil || !typeProvider.federatedResolvers.isEmpty else {
             throw SchemaError(
                 description: "Schema must contain at least 1 query or federated resolver"
             )
         }
 
-        try validateAppliedDirectives(
-            typeProvider.appliedDirectiveMap,
-            locations: typeProvider.targetLocations,
-            against: specifiedDirectives + typeProvider.directives
-        )
+        if runtimeBuilder == nil && validation == .validate {
+            try validateAppliedDirectives(
+                typeProvider.appliedDirectiveMap,
+                locations: typeProvider.targetLocations,
+                against: specifiedDirectives + typeProvider.directives
+            )
+        }
 
         let schema = try GraphQLSchema(
             query: typeProvider.query,
             mutation: typeProvider.mutation,
             subscription: typeProvider.subscription,
             types: typeProvider.types,
-            directives: specifiedDirectives + typeProvider.directives
+            directives: specifiedDirectives + typeProvider.directives,
+            assumeValid: validation == .prevalidatedArtifact
         )
 
-        // GraphQL caches schema validation lazily without synchronizing the initial write.
-        // Validate before publishing the Sendable schema so concurrent requests only read it.
-        let validationErrors = try validateSchema(schema: schema)
-        guard validationErrors.isEmpty else {
-            throw GraphQLErrors(validationErrors)
+        if let runtimeBuilder {
+            try runtimeBuilder.registerDirectives(in: schema)
+            if validation == .validate {
+                try validateAppliedDirectives(
+                    typeProvider.appliedDirectiveMap,
+                    locations: typeProvider.targetLocations,
+                    against: specifiedDirectives + typeProvider.directives
+                )
+            }
+        }
+        // Prevalidated construction seeds GraphQL's validation cache above. Normal
+        // construction validates before publishing the Sendable schema.
+        if validation == .validate {
+            let validationErrors = try validateSchema(schema: schema)
+            guard validationErrors.isEmpty else { throw GraphQLErrors(validationErrors) }
         }
 
         appliedDirectives = typeProvider.appliedDirectiveMap
@@ -83,11 +120,7 @@ public extension Schema {
         federatedSDL: String? = nil,
         @ComponentBuilder<Resolver, Context> _ components: () -> Component<Resolver, Context>
     ) throws {
-        try self.init(
-            coders: coders,
-            federatedSDL: federatedSDL,
-            components: [components()]
-        )
+        try self.init(coders: coders, federatedSDL: federatedSDL, components: [components()])
     }
 
     convenience init(
@@ -95,10 +128,34 @@ public extension Schema {
         federatedSDL: String? = nil,
         @ComponentBuilder<Resolver, Context> _ components: () -> [Component<Resolver, Context>]
     ) throws {
+        try self.init(coders: coders, federatedSDL: federatedSDL, components: components())
+    }
+
+    convenience init(
+        coders: Coders = Coders(),
+        federatedSDL: String? = nil,
+        runtime: ((RuntimeSchemaBuilder) throws -> Void)?,
+        @ComponentBuilder<Resolver, Context> _ components: () -> Component<Resolver, Context>
+    ) throws {
         try self.init(
             coders: coders,
             federatedSDL: federatedSDL,
-            components: components()
+            components: [components()],
+            runtime: runtime
+        )
+    }
+
+    convenience init(
+        coders: Coders = Coders(),
+        federatedSDL: String? = nil,
+        runtime: ((RuntimeSchemaBuilder) throws -> Void)?,
+        @ComponentBuilder<Resolver, Context> _ components: () -> [Component<Resolver, Context>]
+    ) throws {
+        try self.init(
+            coders: coders,
+            federatedSDL: federatedSDL,
+            components: components(),
+            runtime: runtime
         )
     }
 

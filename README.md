@@ -279,3 +279,34 @@ This project is released under the MIT license. See [LICENSE](LICENSE) for detai
 
 [gh-actions-badge]: https://github.com/GraphQLSwift/Graphiti/workflows/Tests/badge.svg
 [gh-actions-url]: https://github.com/GraphQLSwift/Graphiti/actions?query=workflow%3ATests
+
+## Opt-in runtime schema composition
+
+`Schema(..., runtime: { builder in ... })` and
+`SchemaBuilder.build(runtime:)` accept a synchronous construction callback after
+native components register their types and before schema finalization. Omit it
+to retain the existing construction path.
+
+`RuntimeSchemaBuilder` exposes named type lookup, whole-type registration,
+query/mutation/subscription field registration, directive definitions and applied
+directive metadata. It uses the original GraphQL type objects and resolvers;
+native scalar coercion remains intact. Colliding type/directive/root-field names
+are rejected. Mutating builder methods reject calls after the callback returns.
+
+`RuntimeField("related") { types in GraphQLField(...) }` explicitly declares a
+relationship on a Swift-owned type using a runtime return type. Its raw resolver
+must adapt the source/context/return value as appropriate. A dynamic field may
+likewise return a native object using `builder.types.output("NativeType")`.
+No automatic Swift/Lua representation conversion is implied.
+
+Runtime registration cannot append fields to native-owned types. Compose any
+extensions within the dynamic layer before registering its whole type. Shared
+operation roots accept new, nonconflicting fields. Applied directives are
+validated and included in `Schema.appliedDirectives` and `Schema.sdl()`.
+
+The callback is trusted construction code, not a sandbox. Do not mutate returned
+GraphQL objects or retain construction state for mutation after publication.
+This API is serialization-independent: XML parsing, handler compilation and
+resource ownership tracking belong to the calling application.
+
+See `Tests/GraphitiTests/RuntimeSchemaTests.swift` for executable examples.

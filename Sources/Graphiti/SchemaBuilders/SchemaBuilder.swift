@@ -141,6 +141,11 @@ public final class SchemaBuilder<Resolver: Sendable, Context: Sendable> {
 
     /// Create and return the queryable GraphQL schema
     public func build() throws -> Schema<Resolver, Context> {
+        try build(runtime: nil)
+    }
+
+    /// Adds runtime-owned declarations before finalizing the native schema.
+    public func build(runtime: ((RuntimeSchemaBuilder) throws -> Void)?) throws -> Schema<Resolver, Context> {
         var components = typeComponents.map { topLevelComponent in
             topLevelComponent as Component<Resolver, Context>
         }
@@ -161,7 +166,8 @@ public final class SchemaBuilder<Resolver: Sendable, Context: Sendable> {
         return try Schema(
             coders: coders,
             federatedSDL: federatedSDL,
-            components: components
+            components: components,
+            runtime: runtime
         )
     }
 }
