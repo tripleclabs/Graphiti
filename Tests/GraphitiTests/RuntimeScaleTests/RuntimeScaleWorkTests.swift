@@ -37,6 +37,9 @@ private final class EvaluationCounter {
             .build(runtime: { runtime in
                 builder = runtime
                 try shape.install(into: runtime)
+                // As many lookups as root fields, as a resource engine
+                // resolving each field's type by name might make.
+                for i in 0 ..< n { _ = try runtime.types.named("SynthObj\(i % shape.objectTypes)") }
             })
         #expect(schema.appliedDirectives.count >= shape.directiveTargetCount)
         let types = shape.objectTypes + shape.enums + shape.inputs + 4 // scalar, interface, union, Native
@@ -62,6 +65,16 @@ private final class EvaluationCounter {
             // Object, interface and input types plus the two runtime roots.
             #expect(work.counts.fieldMapEvaluations <= work.types + 2)
             #expect(work.counts.fieldMapEvaluations < work.targets / 4)
+        }
+    }
+
+    @Test func lookupsShareTheIndexInsteadOfRereadingTheTypeList() throws {
+        for n in [100, 400] {
+            // n lookups through `runtime.types`, a RuntimeField evaluation and
+            // n/4-odd `addType` duplicate checks: only schema construction's
+            // own read of the list remains. Rebuilding per lookup reads it
+            // once per lookup.
+            #expect(try work(n).counts.typeListReads == 1)
         }
     }
 

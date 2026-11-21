@@ -25,9 +25,9 @@ public final class Query<Resolver: Sendable, Context: Sendable>: Component<Resol
 
                     // Add subgraph types to provider (_Service, _Any, _Entity)
                     let entity = entityType(federatedTypes)
-                    typeProvider.types.append(serviceType)
-                    typeProvider.types.append(anyType)
-                    typeProvider.types.append(entity)
+                    typeProvider.appendType(serviceType)
+                    typeProvider.appendType(anyType)
+                    typeProvider.appendType(entity)
 
                     // Add subgraph queries (_entities, _service)
                     queryFields["_entities"] = entitiesQuery(

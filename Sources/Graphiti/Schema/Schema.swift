@@ -67,7 +67,7 @@ public final class Schema<Resolver: Sendable, Context: Sendable>: Sendable {
             query: typeProvider.query,
             mutation: typeProvider.mutation,
             subscription: typeProvider.subscription,
-            types: typeProvider.types,
+            types: typeProvider.allTypes(),
             directives: specifiedDirectives + typeProvider.directives,
             assumeValid: validation == .prevalidatedArtifact
         )

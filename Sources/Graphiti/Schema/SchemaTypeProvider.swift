@@ -22,7 +22,10 @@ final class SchemaTypeProvider: TypeProvider {
     var query: GraphQLObjectType?
     var mutation: GraphQLObjectType?
     var subscription: GraphQLObjectType?
-    var types: [GraphQLNamedType] = []
+    /// Named types in registration order. Append-only: added through
+    /// `appendType(_:)`, which keeps the name index in step, and read in full
+    /// through `allTypes()`.
+    private var typeList: [GraphQLNamedType] = []
     var directives: [GraphQLDirective] = []
     var appliedDirectiveMap: AppliedDirectiveMap = [:]
 
@@ -88,41 +91,47 @@ final class SchemaTypeProvider: TypeProvider {
 
     func add(type: Any.Type, as graphQLType: GraphQLNamedType) throws {
         try map(type, to: graphQLType)
-        types.append(graphQLType)
+        appendType(graphQLType)
     }
 
-    // MARK: Name index for runtime lookups
+    // MARK: Type list and name index
 
     private static let builtInScalars: [String: GraphQLNamedType] = [
         "String": GraphQLString, "Int": GraphQLInt, "Float": GraphQLFloat,
         "Boolean": GraphQLBoolean, "ID": GraphQLID,
     ]
 
-    /// `types` keyed by name, over the built-in scalars. `types` only ever
-    /// grows, so each read indexes just the entries appended since the last
-    /// one, rather than rebuilding the map per lookup. Later entries win, as
-    /// they did when the map was rebuilt from scratch.
+    /// The registered types keyed by name, over the built-in scalars, updated
+    /// on each append. Later entries win, as they did when 0.1.0 rebuilt this
+    /// map from the whole list for every lookup.
     private var typeIndex = builtInScalars
-    private var indexedTypeCount = 0
 
-    /// Entries written to the name index so far. It grows with the number of
-    /// types, not with the number of lookups; read by the scaling tests.
+    /// Entries written to the name index: one per appended type.
     package private(set) var typeIndexInsertions = 0
+    /// Full reads of the type list. Building a lookup must not need one; the
+    /// scaling tests check that this stays constant.
+    package private(set) var typeListReads = 0
 
-    /// The name index, brought up to date with `types`.
-    var indexedTypes: [String: GraphQLNamedType] {
-        if indexedTypeCount > types.count {
-            // `types` is append-only, so this is not expected; rebuild rather
-            // than serve a stale index.
-            typeIndex = Self.builtInScalars
-            indexedTypeCount = 0
-        }
-        while indexedTypeCount < types.count {
-            let type = types[indexedTypeCount]
-            typeIndex[type.name] = type
-            indexedTypeCount += 1
-            typeIndexInsertions += 1
-        }
-        return typeIndex
+    func appendType(_ type: GraphQLNamedType) {
+        typeList.append(type)
+        typeIndex[type.name] = type
+        typeIndexInsertions += 1
+    }
+
+    /// Every registered type, in registration order.
+    func allTypes() -> [GraphQLNamedType] {
+        typeListReads += 1
+        return typeList
+    }
+
+    /// The name index as it stands. Callers that keep the result share its
+    /// storage copy-on-write until the next `appendType(_:)`.
+    func currentTypeIndex() -> [String: GraphQLNamedType] {
+        typeIndex
+    }
+
+    /// The current root types, in the precedence order lookups apply.
+    func currentRootTypes() -> [GraphQLObjectType?] {
+        [query, mutation, subscription]
     }
 }

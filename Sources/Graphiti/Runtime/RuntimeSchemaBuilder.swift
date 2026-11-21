@@ -2,24 +2,41 @@ import GraphQL
 
 /// A name-based view used by explicitly declared runtime fields. Lookup uses
 /// the original objects, preserving native scalar coercion and type identity.
+///
+/// A lookup is a snapshot of the types registered when it was made. It shares
+/// the schema's name index copy-on-write, so making one is constant time.
+/// That stays linear overall only while lookups are not retained across
+/// `RuntimeSchemaBuilder.addType(_:)`: a caller that takes a fresh
+/// `runtime.types` before every `addType` and keeps each one forces a copy of
+/// the index per added type — quadratic, but no worse than 0.1.0, which
+/// rebuilt the index for every lookup.
 public struct RuntimeTypeLookup {
-    /// The provider's types (over the built-in scalars) as they stood when
-    /// this lookup was made. Shared copy-on-write with the provider's index.
+    /// The registered types (over the built-in scalars) at snapshot time.
     private let types: [String: GraphQLNamedType]
-    /// The root types, which take precedence over a same-named entry in `types`.
-    private let roots: [String: GraphQLNamedType]
+    /// The root types at snapshot time; see `resolve(_:roots:types:)`.
+    private let roots: [GraphQLObjectType?]
 
     init(_ provider: SchemaTypeProvider) {
-        types = provider.indexedTypes
-        var roots: [String: GraphQLNamedType] = [:]
-        for type in [provider.query, provider.mutation, provider.subscription].compactMap({ $0 }) {
-            roots[type.name] = type
-        }
-        self.roots = roots
+        types = provider.currentTypeIndex()
+        roots = provider.currentRootTypes()
+    }
+
+    /// The single name-resolution rule: a root type takes precedence over a
+    /// registered type of the same name, and among roots the later of query,
+    /// mutation, subscription wins.
+    static func resolve(
+        _ name: String,
+        roots: [GraphQLObjectType?],
+        types: [String: GraphQLNamedType]
+    ) -> GraphQLNamedType? {
+        if let root = roots.last(where: { $0?.name == name }) { return root }
+        return types[name]
     }
 
     public func named(_ name: String) throws -> GraphQLNamedType {
-        guard let type = roots[name] ?? types[name] else { throw SchemaError(description: "Unknown runtime type \(name)") }
+        guard let type = Self.resolve(name, roots: roots, types: types) else {
+            throw SchemaError(description: "Unknown runtime type \(name)")
+        }
         return type
     }
 
@@ -60,10 +77,11 @@ public final class RuntimeSchemaBuilder {
         guard active else { throw SchemaError(description: "Runtime schema construction has finished") }
     }
 
-    /// Whether `types` would find `name`, without taking a snapshot of the index.
+    /// Whether `types` would find `name`.
     private func isNamedType(_ name: String) -> Bool {
-        [provider.query, provider.mutation, provider.subscription].contains { $0?.name == name }
-            || provider.indexedTypes[name] != nil
+        RuntimeTypeLookup.resolve(
+            name, roots: provider.currentRootTypes(), types: provider.currentTypeIndex()
+        ) != nil
     }
 
     public func addType(_ type: GraphQLNamedType) throws {
@@ -73,7 +91,7 @@ public final class RuntimeSchemaBuilder {
             throw SchemaError(description: "Duplicate or reserved runtime type \(type.name)")
         }
         ownedTypes.insert(type.name)
-        provider.types.append(type)
+        provider.appendType(type)
     }
 
     /// Bind a native Codable scalar representation to a runtime-owned scalar.
@@ -195,12 +213,15 @@ public final class RuntimeSchemaBuilder {
         package var fieldMapEvaluations: Int
         /// Entries written to the type-name index used by lookups.
         package var typeIndexInsertions: Int
+        /// Full reads of the registered type list (schema construction makes one).
+        package var typeListReads: Int
     }
 
     package var workCounts: WorkCounts {
         WorkCounts(
             fieldMapEvaluations: fieldMapEvaluations,
-            typeIndexInsertions: provider.typeIndexInsertions
+            typeIndexInsertions: provider.typeIndexInsertions,
+            typeListReads: provider.typeListReads
         )
     }
 }
