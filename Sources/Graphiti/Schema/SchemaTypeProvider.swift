@@ -90,4 +90,39 @@ final class SchemaTypeProvider: TypeProvider {
         try map(type, to: graphQLType)
         types.append(graphQLType)
     }
+
+    // MARK: Name index for runtime lookups
+
+    private static let builtInScalars: [String: GraphQLNamedType] = [
+        "String": GraphQLString, "Int": GraphQLInt, "Float": GraphQLFloat,
+        "Boolean": GraphQLBoolean, "ID": GraphQLID,
+    ]
+
+    /// `types` keyed by name, over the built-in scalars. `types` only ever
+    /// grows, so each read indexes just the entries appended since the last
+    /// one, rather than rebuilding the map per lookup. Later entries win, as
+    /// they did when the map was rebuilt from scratch.
+    private var typeIndex = builtInScalars
+    private var indexedTypeCount = 0
+
+    /// Entries written to the name index so far. It grows with the number of
+    /// types, not with the number of lookups; read by the scaling tests.
+    package private(set) var typeIndexInsertions = 0
+
+    /// The name index, brought up to date with `types`.
+    var indexedTypes: [String: GraphQLNamedType] {
+        if indexedTypeCount > types.count {
+            // `types` is append-only, so this is not expected; rebuild rather
+            // than serve a stale index.
+            typeIndex = Self.builtInScalars
+            indexedTypeCount = 0
+        }
+        while indexedTypeCount < types.count {
+            let type = types[indexedTypeCount]
+            typeIndex[type.name] = type
+            indexedTypeCount += 1
+            typeIndexInsertions += 1
+        }
+        return typeIndex
+    }
 }
